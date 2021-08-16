@@ -142,7 +142,7 @@ resource "null_resource" "kubeadm-init" {
 
   provisioner "remote-exec" {
     inline = [
-      "kubeadm init --apiserver-advertise-address ${one(hcloud_server.node[0].network).ip} --apiserver-cert-extra-sans ${hcloud_load_balancer.lb.ipv4} --pod-network-cidr 10.244.0.0/16 --service-cidr 10.243.0.0/16 --control-plane-endpoint ${hcloud_load_balancer_network.lb-network.ip} --token ${var.kubeadm_token} --token-ttl 0 --certificate-key ${var.kubeadm_certificate_key} --upload-certs"
+      "kubeadm init --apiserver-advertise-address ${hcloud_server_network.node-privnet[0].ip} --apiserver-cert-extra-sans ${hcloud_load_balancer.lb.ipv4} --pod-network-cidr 10.244.0.0/16 --service-cidr 10.243.0.0/16 --control-plane-endpoint ${hcloud_load_balancer_network.lb-network.ip} --token ${var.kubeadm_token} --token-ttl 0 --certificate-key ${var.kubeadm_certificate_key} --upload-certs"
     ]
   }
 
