@@ -78,6 +78,11 @@ resource "hcloud_load_balancer" "lb" {
   location = "fsn1"
 }
 
+resource "hcloud_load_balancer_network" "lb-network" {
+  load_balancer_id = hcloud_load_balancer.lb.id
+  subnet_id = hcloud_network_subnet.subnet-nodes.id
+}
+
 resource "hcloud_load_balancer_target" "lb-target" {
   count = 3
 
@@ -85,6 +90,10 @@ resource "hcloud_load_balancer_target" "lb-target" {
   load_balancer_id = hcloud_load_balancer.lb.id
   server_id = hcloud_server.node[count.index].id
   use_private_ip = true
+
+  depends_on = [
+    hcloud_load_balancer_network.lb-network
+  ]
 }
 
 resource "hcloud_load_balancer_service" "load_balancer_service" {
