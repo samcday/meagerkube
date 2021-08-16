@@ -71,3 +71,26 @@ resource "hcloud_server" "node" {
     hcloud_network_subnet.subnet-nodes
   ]
 }
+
+resource "hcloud_load_balancer" "lb" {
+  name = "lb"
+  load_balancer_type = "lb11"
+  location = "fsn1"
+}
+
+resource "hcloud_load_balancer_target" "lb-target" {
+  count = 3
+
+  type = "server"
+  load_balancer_id = hcloud_load_balancer.lb.id
+  server_id = hcloud_server.node[count.index].id
+  use_private_ip = true
+}
+
+resource "hcloud_load_balancer_service" "load_balancer_service" {
+  for_each = toset([443, 6443])
+  load_balancer_id = hcloud_load_balancer.lb.id
+  protocol = "tcp"
+  listen_port = each.value
+  destination_port = each.value
+}
