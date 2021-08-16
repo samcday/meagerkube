@@ -120,7 +120,8 @@ resource "hcloud_load_balancer_target" "lb-target" {
   use_private_ip = true
 
   depends_on = [
-    hcloud_load_balancer_network.lb-network
+    hcloud_load_balancer_network.lb-network,
+    hcloud_server_network.node-privnet
   ]
 }
 
@@ -132,21 +133,21 @@ resource "hcloud_load_balancer_service" "load_balancer_service" {
   destination_port = each.value
 }
 
-resource "null_resource" "kubeadm-init" {
-  connection {
-    host = "${hcloud_server.node[0].ipv4_address}"
-    user = "root"
-    private_key = var.ssh_prv
-  }
+# resource "null_resource" "kubeadm-init" {
+#   connection {
+#     host = "${hcloud_server.node[0].ipv4_address}"
+#     user = "root"
+#     private_key = var.ssh_prv
+#   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "kubeadm init --apiserver-advertise-address ${one(hcloud_server.node[0].network).ip} --apiserver-cert-extra-sans ${hcloud_load_balancer.lb.ipv4} --pod-network-cidr 10.244.0.0/16 --service-cidr 10.243.0.0/16 --control-plane-endpoint ${hcloud_load_balancer_network.lb-network.ip} --token ${var.kubeadm_token} --token-ttl 0 --certificate-key ${var.kubeadm_certificate_key} --upload-certs"
-    ]
-  }
+#   provisioner "remote-exec" {
+#     inline = [
+#       "kubeadm init --apiserver-advertise-address ${one(hcloud_server.node[0].network).ip} --apiserver-cert-extra-sans ${hcloud_load_balancer.lb.ipv4} --pod-network-cidr 10.244.0.0/16 --service-cidr 10.243.0.0/16 --control-plane-endpoint ${hcloud_load_balancer_network.lb-network.ip} --token ${var.kubeadm_token} --token-ttl 0 --certificate-key ${var.kubeadm_certificate_key} --upload-certs"
+#     ]
+#   }
 
-  depends_on = [
-    hcloud_server.node[0],
-    hcloud_load_balancer.lb,
-  ]
-}
+#   depends_on = [
+#     hcloud_server.node[0],
+#     hcloud_load_balancer.lb,
+#   ]
+# }
