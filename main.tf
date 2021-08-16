@@ -44,6 +44,7 @@ resource "hcloud_firewall" "firewall" {
 resource "hcloud_network" "network" {
   name = "network"
   ip_range = "10.240.0.0/13"
+  labels = {}
 }
 
 resource "hcloud_network_subnet" "subnet-nodes" {
@@ -51,4 +52,45 @@ resource "hcloud_network_subnet" "subnet-nodes" {
   type = "cloud"
   network_zone = "eu-central"
   ip_range = "10.240.0.0/16"
+}
+
+resource "hcloud_server" "node" {
+  count = 3
+
+  name = "node${count.index}"
+  server_type = "cx21"
+  image = "45559722"
+  location = "fsn1"
+  firewall_ids = [ hcloud_firewall.firewall.id ]
+
+  network {
+    network_id = hcloud_network.network.id
+  }
+
+  depends_on = [
+    hcloud_network_subnet.subnet-nodes
+  ]
+}
+
+resource "hcloud_load_balancer" "lb" {
+  name = "lb"
+  load_balancer_type = "lb11"
+  location = "fsn1"
+}
+
+resource "hcloud_load_balancer_target" "lb-target" {
+  count = 3
+
+  type = "server"
+  load_balancer_id = hcloud_load_balancer.lb.id
+  server_id = hcloud_server.node[count.index].id
+  use_private_ip = true
+}
+
+resource "hcloud_load_balancer_service" "load_balancer_service" {
+  for_each = toset(["443", "6443"])
+  load_balancer_id = hcloud_load_balancer.lb.id
+  protocol = "tcp"
+  listen_port = each.value
+  destination_port = each.value
 }
