@@ -54,6 +54,16 @@ resource "hcloud_network_subnet" "subnet-nodes" {
   ip_range = "10.240.0.0/16"
 }
 
+resource "hcloud_ssh_key" "sam" {
+  name = "sam"
+  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFwawprQXEkGl38Q7T0PNseL0vpoyr4TbATMkEaZJTWQ"
+}
+
+resource "hcloud_ssh_key" "terraform" {
+  name = "terraform"
+  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJLBm9E7KbYp/WF4HJdYzVhSOb/0YJVY9HyVtVghM+Ol"
+}
+
 resource "hcloud_server" "node" {
   count = 3
 
@@ -62,6 +72,7 @@ resource "hcloud_server" "node" {
   image = "45559722"
   location = "fsn1"
   firewall_ids = [ hcloud_firewall.firewall.id ]
+  ssh_keys = [hcloud_ssh_key.sam.id, hcloud_ssh_key.terraform.id]
 
   network {
     network_id = hcloud_network.network.id
