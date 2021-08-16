@@ -21,6 +21,18 @@ variable "hcloud_token" {
   sensitive = true
 }
 
+variable "ssh_prv" {
+  sensitive = true
+}
+
+variable "kubeadm_certificate_key" {
+  sensitive = true
+}
+
+variable "kubeadm_token" {
+  sensitive = true
+}
+
 provider "hcloud" {
   token = var.hcloud_token
 }
@@ -113,4 +125,23 @@ resource "hcloud_load_balancer_service" "load_balancer_service" {
   protocol = "tcp"
   listen_port = each.value
   destination_port = each.value
+}
+
+resource "null_resource" "kubeadm-init" {
+  connection {
+    host = "${hcloud_server.node[0].ipv4_address}"
+    user = "root"
+    private_key = var.ssh_prv
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "kubeadm init --apiserver-advertise-address ${tolist(hcloud_server.node[0])[0].network.ip} --apiserver-cert-extra-sans ${hcloud_load_balancer.lb.ipv4} --pod-network-cidr 10.244.0.0/16 --service-cidr 10.243.0.0/16 --control-plane-endpoint ${hcloud_load_balancer_network.lb-network.ip} --token ${var.kubeadm_token} --token-ttl 0 --certificate-key ${var.kubeadm_certificate_key} --upload-certs"
+    ]
+  }
+
+  depends_on = [
+    hcloud_server.node[0],
+    hcloud_load_balancer.lb,
+  ]
 }
