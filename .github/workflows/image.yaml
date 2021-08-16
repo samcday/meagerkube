@@ -3,7 +3,7 @@ name: Build image
 on:
   push:
     branches: [main]
-    paths: [image/**]
+    paths: [image/**, .github/workflows/image.yaml]
 
 jobs:
   build:
