@@ -15,3 +15,5 @@ jobs:
           fetch-depth: 1
           submodules: 'true'
       - run: image/build.sh
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
