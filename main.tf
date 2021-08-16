@@ -86,13 +86,17 @@ resource "hcloud_server" "node" {
   firewall_ids = [ hcloud_firewall.firewall.id ]
   ssh_keys = [hcloud_ssh_key.sam.id, hcloud_ssh_key.terraform.id]
 
-  network {
-    network_id = hcloud_network.network.id
-  }
-
   depends_on = [
     hcloud_network_subnet.subnet-nodes
   ]
+}
+
+resource "hcloud_server_network" "node-privnet" {
+  count = 3
+
+  server_id = hcloud_server.node[count.index].id
+  subnet_id = hcloud_network_subnet.subnet-nodes.id
+  ip = "10.240.0.${100 + count.index}"
 }
 
 resource "hcloud_load_balancer" "lb" {
@@ -104,6 +108,7 @@ resource "hcloud_load_balancer" "lb" {
 resource "hcloud_load_balancer_network" "lb-network" {
   load_balancer_id = hcloud_load_balancer.lb.id
   subnet_id = hcloud_network_subnet.subnet-nodes.id
+  ip = "10.240.0.99"
 }
 
 resource "hcloud_load_balancer_target" "lb-target" {
