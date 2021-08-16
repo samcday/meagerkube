@@ -1,0 +1,4 @@
+[submodule "image/image-builder"]
+	path = image/image-builder
+	url = https://github.com/samcday/image-builder.git
+	branch = hcloud
