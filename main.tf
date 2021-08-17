@@ -146,10 +146,6 @@ resource "hcloud_load_balancer_service" "load_balancer_service" {
 }
 
 resource "null_resource" "kubeadm-init" {
-  depends_on = [
-    hcloud_server.node[0],
-  ]
-
   triggers = {}
 
   connection {
@@ -175,7 +171,10 @@ resource "null_resource" "kubeadm-join" {
     null_resource.kubeadm-init
   ]
 
-  triggers = {}
+  triggers = {
+    # Ensures that provisioner reruns if a node is recreated.
+    server_id = hcloud_server.node[count.index].id
+  }
 
   connection {
     host        = hcloud_server.node[count.index].ipv4_address
