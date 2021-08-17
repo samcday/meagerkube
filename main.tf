@@ -164,7 +164,10 @@ resource "null_resource" "kubeadm-init" {
 resource "null_resource" "kubeadm-join" {
   count = 3
   depends_on = [
-    null_resource.kubeadm-init
+    # Can't join a cluster that doesn't exist yet, bruh.
+    null_resource.kubeadm-init,
+    # This makes sure that the node isn't disconnected from the private network before we've done a `kubeadm reset`.
+    hcloud_server_network.node-privnet,
   ]
 
   triggers = {
