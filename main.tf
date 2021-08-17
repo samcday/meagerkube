@@ -177,6 +177,9 @@ resource "null_resource" "kubeadm-join" {
   ]
 
   triggers = {
+    # If kubeadm-init is tainted, then all nodes will be forced to recreate. This effectively resets the entire cluster state
+    # without having to recreate the nodes.
+    init_id = null_resource.kubeadm-init.id
     ssh_prv = var.ssh_prv
     # Ensures that provisioner reruns if a node is recreated.
     server_id = hcloud_server.node[count.index].id

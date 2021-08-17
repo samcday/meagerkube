@@ -3,7 +3,6 @@ kind: Kustomization
 resources:
   - https://raw.githubusercontent.com/coreos/flannel/v0.14.0/Documentation/kube-flannel.yml
 patches:
-  
   - patch: |-
       # Set resource requests on init container to ensure flannel pod gets Guaranteed QoS.
       - op: replace
