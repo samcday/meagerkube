@@ -76,29 +76,6 @@ resource "hcloud_ssh_key" "terraform" {
   public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJLBm9E7KbYp/WF4HJdYzVhSOb/0YJVY9HyVtVghM+Ol"
 }
 
-resource "hcloud_server" "node" {
-  count = 3
-
-  name         = "node${count.index}"
-  server_type  = "cx21"
-  image        = "45559722"
-  location     = "fsn1"
-  firewall_ids = [hcloud_firewall.firewall.id]
-  ssh_keys     = [hcloud_ssh_key.sam.id, hcloud_ssh_key.terraform.id]
-
-  depends_on = [
-    hcloud_network_subnet.subnet-nodes
-  ]
-}
-
-resource "hcloud_server_network" "node-privnet" {
-  count = 3
-
-  server_id = hcloud_server.node[count.index].id
-  subnet_id = hcloud_network_subnet.subnet-nodes.id
-  ip        = "10.240.0.${100 + count.index}"
-}
-
 resource "hcloud_load_balancer" "lb" {
   name               = "lb"
   load_balancer_type = "lb11"
@@ -111,18 +88,53 @@ resource "hcloud_load_balancer_network" "lb-network" {
   ip               = "10.240.0.99"
 }
 
+resource "hcloud_server" "node" {
+  count = 3
+
+  name         = "node${count.index}"
+  server_type  = "cx21"
+  image        = "45559722"
+  location     = "fsn1"
+  firewall_ids = [hcloud_firewall.firewall.id]
+  ssh_keys     = [hcloud_ssh_key.sam.id, hcloud_ssh_key.terraform.id]
+
+  connection {
+    host        = self.ipv4_address
+    user        = "root"
+    private_key = var.ssh_prv
+  }
+
+  provisioner "file" {
+    content = templatefile("kubeadm.yaml", {
+      kubeadm_cert_key = var.kubeadm_certificate_key,
+      kubeadm_token    = var.kubeadm_token,
+      lb_private_ip    = hcloud_load_balancer_network.lb-network.ip,
+      lb_public_ip     = hcloud_load_balancer.lb.ipv4
+      node_ip          = "10.240.0.${100 + count.index}",
+    })
+    destination = "/root/kubeadm.yaml"
+  }
+}
+
+resource "hcloud_server_network" "node-privnet" {
+  count = 3
+
+  server_id = hcloud_server.node[count.index].id
+  subnet_id = hcloud_network_subnet.subnet-nodes.id
+  ip        = "10.240.0.${100 + count.index}"
+}
+
 resource "hcloud_load_balancer_target" "lb-target" {
   count = 3
+  depends_on = [
+    hcloud_load_balancer_network.lb-network,
+    hcloud_server_network.node-privnet
+  ]
 
   type             = "server"
   load_balancer_id = hcloud_load_balancer.lb.id
   server_id        = hcloud_server.node[count.index].id
   use_private_ip   = true
-
-  depends_on = [
-    hcloud_load_balancer_network.lb-network,
-    hcloud_server_network.node-privnet
-  ]
 }
 
 resource "hcloud_load_balancer_service" "load_balancer_service" {
@@ -134,7 +146,11 @@ resource "hcloud_load_balancer_service" "load_balancer_service" {
 }
 
 resource "null_resource" "kubeadm-init" {
-  triggers = { foo = "bar" }
+  depends_on = [
+    hcloud_server.node[0],
+  ]
+
+  triggers = {}
 
   connection {
     host        = hcloud_server.node[0].ipv4_address
@@ -142,25 +158,30 @@ resource "null_resource" "kubeadm-init" {
     private_key = var.ssh_prv
   }
 
-  provisioner "file" {
-    content = templatefile("kubeadm.yaml", {
-      kubeadm_cert_key = var.kubeadm_certificate_key,
-      kubeadm_token    = var.kubeadm_token,
-      lb_private_ip    = hcloud_load_balancer_network.lb-network.ip,
-      lb_public_ip     = hcloud_load_balancer.lb.ipv4
-      node_ip          = hcloud_server_network.node-privnet[0].ip,
-    })
-    destination = "/root/kubeadm.yaml"
-  }
-
   provisioner "remote-exec" {
     inline = [
       "kubeadm init --config /root/kubeadm.yaml --upload-certs"
     ]
   }
+}
 
+resource "null_resource" "kubeadm-join" {
+  count = 3
   depends_on = [
-    hcloud_server.node[0],
-    hcloud_load_balancer.lb,
+    null_resource.kubeadm-init
   ]
+
+  triggers = {}
+
+  connection {
+    host        = hcloud_server.node[count.index].ipv4_address
+    user        = "root"
+    private_key = var.ssh_prv
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "[[ ! -f /etc/kubernetes/kubelet.conf ]] && kubeadm join --config /root/kubeadm.yaml"
+    ]
+  }
 }
