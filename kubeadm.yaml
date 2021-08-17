@@ -38,8 +38,6 @@ discovery:
   bootstrapToken:
     apiServerEndpoint: ${lb_private_ip}
     token: ${kubeadm_token}
-localAPIEndpoint:
-  advertiseAddress: ${node_ip}
 nodeRegistration:
   kubeletExtraArgs:
     node-ip: ${node_ip}
