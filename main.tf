@@ -163,6 +163,10 @@ resource "null_resource" "kubeadm-init" {
       "kubeadm init --config /root/kubeadm.yaml --upload-certs"
     ]
   }
+  provisioner "remote-exec" {
+    when    = destroy
+    command = "kubeadm reset"
+  }
 }
 
 resource "null_resource" "kubeadm-join" {
