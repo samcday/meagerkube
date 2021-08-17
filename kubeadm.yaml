@@ -36,8 +36,9 @@ controlPlane:
   certificateKey: ${kubeadm_cert_key}
 discovery:
   bootstrapToken:
-    apiServerEndpoint: ${lb_private_ip}
+    apiServerEndpoint: ${lb_private_ip}:6443
     token: ${kubeadm_token}
+    unsafeSkipCAVerification: true
 nodeRegistration:
   kubeletExtraArgs:
     node-ip: ${node_ip}
