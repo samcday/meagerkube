@@ -1,0 +1,46 @@
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+bootstrapTokens:
+  - token: ${kubeadm_token}
+    ttl: 0
+certificateKey: ${kubeadm_cert_key}
+localAPIEndpoint:
+  advertiseAddress: ${node_ip}
+nodeRegistration:
+  kubeletExtraArgs:
+    node-ip: ${node_ip}
+  taints: []
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+apiServer:
+  certSANs: [${lb_public_ip}] 
+clusterName: meagerkube
+controlPlaneEndpoint: ${lb_private_ip}
+kubernetesVersion: 1.21.3
+networking:
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.243.0.0/16
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: JoinConfiguration
+controlPlane:
+  localAPIEndpoint:
+    advertiseAddress: ${node_ip}
+    certificateKey: ${kubeadm_cert_key}
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: ${lb_private_ip}
+    token: ${kubeadm_token}
+localAPIEndpoint:
+  advertiseAddress: ${node_ip}
+nodeRegistration:
+  kubeletExtraArgs:
+    node-ip: ${node_ip}
+  taints: []
