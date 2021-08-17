@@ -181,7 +181,7 @@ resource "null_resource" "kubeadm-join" {
 
   provisioner "remote-exec" {
     inline = [
-      "if [[ ! -f /etc/kubernetes/kubelet.conf ]]; then kubeadm join --config /root/kubeadm.yaml; fi"
+      "[ ! -f /etc/kubernetes/kubelet.conf ] && kubeadm join --config /root/kubeadm.yaml"
     ]
   }
 }
