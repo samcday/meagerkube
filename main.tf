@@ -188,6 +188,6 @@ resource "null_resource" "kubeadm-join" {
 
   provisioner "remote-exec" {
     when   = destroy
-    inline = ["kubeadm reset"]
+    inline = ["kubeadm reset -f"]
   }
 }
