@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - github.com/kubernetes/autoscaler/vertical-pod-autoscaler/deploy?ref=vertical-pod-autoscaler/v0.9.2
+  - certs.yaml
+patches:
+  - target:
+      kind: Deployment
+      name: vpa-admission-controller
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes/0/secret/secretName
+        value: vpa-webhook-cert
+      - op: replace
+        path: /spec/template/spec/containers/0/args
+        value:
+          - --tls-cert-file=/etc/tls-certs/tls.crt
+          - --tls-private-key=/etc/tls-certs/tls.key
+          - --client-ca-file=/etc/tls-certs/ca.crt

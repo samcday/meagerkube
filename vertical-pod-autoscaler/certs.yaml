@@ -1,0 +1,41 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vpa-webhook-ca
+  namespace: kube-system
+spec:
+  isCA: true
+  commonName: vpa-webhook-ca
+  secretName: vpa-webhook-ca
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: self-signed
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: vpa-webhook
+  namespace: kube-system
+spec:
+  ca:
+    secretName: vpa-webhook-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vpa-webhook-cert
+  namespace: kube-system
+spec:
+  commonName: vpa-webhook.kube-system.svc
+  secretName: vpa-webhook-cert
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: vpa-webhook
+    kind: Issuer
+    group: cert-manager.io
