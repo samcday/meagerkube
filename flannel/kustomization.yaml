@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://raw.githubusercontent.com/coreos/flannel/v0.14.0/Documentation/kube-flannel.yml
+patches:
+  
+  - patch: |-
+      # Set resource requests on init container to ensure flannel pod gets Guaranteed QoS.
+      - op: replace
+        path: /spec/template/spec/initContainers/0/resources
+        value:
+          requests:
+            cpu: "100m"
+            memory: "50Mi"
+          limits:
+            cpu: "100m"
+            memory: "50Mi"
+      # Point flannel at the private interface.
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --iface=ens10
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --iface=enp4s0
+    target:
+      kind: DaemonSet
+      name: kube-flannel-ds

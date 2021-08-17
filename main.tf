@@ -154,9 +154,15 @@ resource "null_resource" "kubeadm-init" {
     private_key = var.ssh_prv
   }
 
+  provisioner "file" {
+    source = "flannel"
+    destination = "/root"
+  }
+
   provisioner "remote-exec" {
     inline = [
-      "kubeadm init --config /root/kubeadm.yaml --upload-certs"
+      "kubeadm init --config /root/kubeadm.yaml --upload-certs",
+      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -k /root/flannel"
     ]
   }
 }
