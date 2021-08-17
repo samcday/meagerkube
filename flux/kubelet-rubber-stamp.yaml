@@ -11,3 +11,8 @@ spec:
   path: ./kubelet-rubber-stamp
   prune: true
   validation: client
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: kubelet-rubber-stamp
+      namespace: kube-system
