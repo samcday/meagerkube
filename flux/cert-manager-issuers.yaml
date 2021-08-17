@@ -4,6 +4,8 @@ metadata:
   name: cert-manager-issuers
   namespace: flux-system
 spec:
+  dependsOn:
+    - name: cert-manager
   interval: 10m0s
   sourceRef:
     kind: GitRepository
