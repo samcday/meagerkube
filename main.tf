@@ -97,23 +97,6 @@ resource "hcloud_server" "node" {
   location     = "fsn1"
   firewall_ids = [hcloud_firewall.firewall.id]
   ssh_keys     = [hcloud_ssh_key.sam.id, hcloud_ssh_key.terraform.id]
-
-  connection {
-    host        = self.ipv4_address
-    user        = "root"
-    private_key = var.ssh_prv
-  }
-
-  provisioner "file" {
-    content = templatefile("kubeadm.yaml", {
-      kubeadm_cert_key = var.kubeadm_certificate_key,
-      kubeadm_token    = var.kubeadm_token,
-      lb_private_ip    = hcloud_load_balancer_network.lb-network.ip,
-      lb_public_ip     = hcloud_load_balancer.lb.ipv4
-      node_ip          = "10.240.0.${100 + count.index}",
-    })
-    destination = "/root/kubeadm.yaml"
-  }
 }
 
 resource "hcloud_server_network" "node-privnet" {
@@ -155,7 +138,18 @@ resource "null_resource" "kubeadm-init" {
   }
 
   provisioner "file" {
-    source = "flannel"
+    content = templatefile("kubeadm.yaml", {
+      kubeadm_cert_key = var.kubeadm_certificate_key,
+      kubeadm_token    = var.kubeadm_token,
+      lb_private_ip    = hcloud_load_balancer_network.lb-network.ip,
+      lb_public_ip     = hcloud_load_balancer.lb.ipv4
+      node_ip          = "10.240.0.100",
+    })
+    destination = "/root/kubeadm.yaml"
+  }
+
+  provisioner "file" {
+    source      = "flannel"
     destination = "/root"
   }
 
@@ -170,8 +164,6 @@ resource "null_resource" "kubeadm-init" {
 resource "null_resource" "kubeadm-join" {
   count = 3
   depends_on = [
-    # Can't join a cluster that doesn't exist yet, bruh.
-    null_resource.kubeadm-init,
     # This makes sure that the node isn't disconnected from the private network before we've done a `kubeadm reset`.
     hcloud_server_network.node-privnet,
   ]
@@ -184,6 +176,17 @@ resource "null_resource" "kubeadm-join" {
     # Ensures that provisioner reruns if a node is recreated.
     server_id = hcloud_server.node[count.index].id
     host      = hcloud_server.node[count.index].ipv4_address
+  }
+
+  provisioner "file" {
+    content = templatefile("kubeadm.yaml", {
+      kubeadm_cert_key = var.kubeadm_certificate_key,
+      kubeadm_token    = var.kubeadm_token,
+      lb_private_ip    = hcloud_load_balancer_network.lb-network.ip,
+      lb_public_ip     = hcloud_load_balancer.lb.ipv4
+      node_ip          = "10.240.0.${100 + count.index}",
+    })
+    destination = "/root/kubeadm.yaml"
   }
 
   connection {
