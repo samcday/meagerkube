@@ -159,10 +159,6 @@ resource "null_resource" "kubeadm-init" {
       "kubeadm init --config /root/kubeadm.yaml --upload-certs"
     ]
   }
-  provisioner "remote-exec" {
-    when    = destroy
-    command = "kubeadm reset"
-  }
 }
 
 resource "null_resource" "kubeadm-join" {
@@ -172,19 +168,26 @@ resource "null_resource" "kubeadm-join" {
   ]
 
   triggers = {
+    ssh_prv = var.ssh_prv
     # Ensures that provisioner reruns if a node is recreated.
     server_id = hcloud_server.node[count.index].id
+    host      = hcloud_server.node[count.index].ipv4_address
   }
 
   connection {
-    host        = hcloud_server.node[count.index].ipv4_address
+    host        = self.triggers.host
     user        = "root"
-    private_key = var.ssh_prv
+    private_key = self.triggers.ssh_prv
   }
 
   provisioner "remote-exec" {
     inline = [
       "[ ! -f /etc/kubernetes/kubelet.conf ] && kubeadm join --config /root/kubeadm.yaml || true"
     ]
+  }
+
+  provisioner "remote-exec" {
+    when   = destroy
+    inline = ["kubeadm reset"]
   }
 }
