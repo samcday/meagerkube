@@ -2,7 +2,7 @@ apiVersion: kubeadm.k8s.io/v1beta2
 kind: InitConfiguration
 bootstrapTokens:
   - token: ${kubeadm_token}
-    ttl: 0
+    ttl: "0"
 certificateKey: ${kubeadm_cert_key}
 localAPIEndpoint:
   advertiseAddress: ${node_ip}
@@ -33,7 +33,7 @@ kind: JoinConfiguration
 controlPlane:
   localAPIEndpoint:
     advertiseAddress: ${node_ip}
-    certificateKey: ${kubeadm_cert_key}
+  certificateKey: ${kubeadm_cert_key}
 discovery:
   bootstrapToken:
     apiServerEndpoint: ${lb_private_ip}
