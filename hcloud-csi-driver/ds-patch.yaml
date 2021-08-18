@@ -1,0 +1,3 @@
+- op: replace
+  path: /spec/template/spec/containers/1/env/2/valueFrom/secretKeyRef/name
+  value: hcloud
