@@ -2,3 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - github.com/prometheus-operator/kube-prometheus?ref=v0.8.0
+patches:
+  - target:
+      kind: ServiceMonitor
+      name: kube-apiserver
+    patch: |-
+      - op: add
+        path: /spec/endpoints/0/metricRelabelings/-
+        value:
+          action: drop
+          regex: apiserver_request_duration_seconds_bucket|etcd_request_duration_seconds_bucket|apiserver_response_sizes_bucket|rest_client_request_duration_seconds_bucket
+          sourceLabels: [__name__]
