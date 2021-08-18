@@ -33,6 +33,10 @@ variable "kubeadm_token" {
   sensitive = true
 }
 
+variable "sops_age_key" {
+  sensitive = true
+}
+
 provider "hcloud" {
   token = var.hcloud_token
 }
@@ -156,7 +160,26 @@ resource "null_resource" "kubeadm-init" {
   provisioner "remote-exec" {
     inline = [
       "kubeadm init --config /root/kubeadm.yaml --upload-certs",
-      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -k /root/flannel"
+      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -k /root/flannel",
+    ]
+  }
+}
+
+resource "null_resource" "sops-age-key" {
+  triggers = {
+    init_id = null_resource.kubeadm-init.id,
+    sops_age_key = var.sops_age_key,
+  }
+
+  connection {
+    host        = hcloud_server.node[0].ipv4_address
+    user        = "root"
+    private_key = var.ssh_prv
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n kube-system create secret generic sops-age --from-literal=age.agekey=${self.triggers.sops_age_key}",
     ]
   }
 }
