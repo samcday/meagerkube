@@ -1,0 +1,22 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: kube-prometheus
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./kube-prometheus
+  prune: true
+  validation: client
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: StatefulSet
+      name: prometheus-k8s
+      namespace: monitoring
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: prometheus-operator
+      namespace: monitoring
