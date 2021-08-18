@@ -184,6 +184,25 @@ resource "null_resource" "sops-age-key" {
   }
 }
 
+resource "null_resource" "hcloud-token" {
+  triggers = {
+    init_id = null_resource.kubeadm-init.id,
+    hcloud_token = var.hcloud_token,
+  }
+
+  connection {
+    host        = hcloud_server.node[0].ipv4_address
+    user        = "root"
+    private_key = var.ssh_prv
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n kube-system create secret generic hcloud --from-literal=token=${self.triggers.hcloud_token}",
+    ]
+  }
+}
+
 resource "null_resource" "kubeadm-join" {
   count = 3
   depends_on = [
