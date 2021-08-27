@@ -168,7 +168,33 @@ resource "null_resource" "kubeadm-init" {
   provisioner "remote-exec" {
     inline = [
       "kubeadm init --config /root/kubeadm.yaml --upload-certs",
-      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -k /root/flannel",
+    ]
+  }
+}
+
+
+
+resource "null_resource" "" {
+  for_each = toset(["flannel", "hcloud-ccm", "kubelet-rubber-stamp"])
+
+  triggers = {
+    init_id = null_resource.kubeadm-init.id,
+  }
+
+  connection {
+    host        = hcloud_server.node[0].ipv4_address
+    user        = "root"
+    private_key = var.ssh_prv
+  }
+
+  provisioner "file" {
+    source      = each.value
+    destination = "/root"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -k ${each.value}",
     ]
   }
 }
@@ -207,29 +233,6 @@ resource "null_resource" "hcloud-token" {
   provisioner "remote-exec" {
     inline = [
       "KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n kube-system create secret generic hcloud --from-literal=token=${self.triggers.hcloud_token}",
-    ]
-  }
-}
-
-resource "null_resource" "hcloud-ccm" {
-  triggers = {
-    hcloud_token_id = null_resource.hcloud-token.id,
-  }
-
-  connection {
-    host        = hcloud_server.node[0].ipv4_address
-    user        = "root"
-    private_key = var.ssh_prv
-  }
-
-  provisioner "file" {
-    source      = "hcloud-ccm"
-    destination = "/root"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -k /root/hcloud-ccm",
     ]
   }
 }
