@@ -174,7 +174,7 @@ resource "null_resource" "kubeadm-init" {
 
 
 
-resource "null_resource" "" {
+resource "null_resource" "bootstrap-manifests" {
   for_each = toset(["flannel", "hcloud-ccm", "kubelet-rubber-stamp"])
 
   triggers = {
