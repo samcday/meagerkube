@@ -6,10 +6,9 @@ resources:
   # - vpa.yaml
 patches:
   - target:
-      kind: StatefulSet
-      name: hcloud-csi-controller
-    path: ss-patch.yaml
-  - target:
       kind: DaemonSet
       name: hcloud-csi-node
-    path: ds-patch.yaml
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/4/env/3/valueFrom/secretKeyRef/name
+        value: hcloud

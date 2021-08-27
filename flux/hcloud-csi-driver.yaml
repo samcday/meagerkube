@@ -1,22 +1,18 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
-  name: hcloud-csi-node
+  name: hcloud-csi-driver
   namespace: flux-system
 spec:
   interval: 10m0s
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./hcloud-csi-node
+  path: ./hcloud-csi-driver
   prune: true
   validation: client
   healthChecks:
     - apiVersion: apps/v1
       kind: DaemonSet
       name: hcloud-csi-node
-      namespace: kube-system
-    - apiVersion: apps/v1
-      kind: StatefulSet
-      name: hcloud-csi-controller
       namespace: kube-system
