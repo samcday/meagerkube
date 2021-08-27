@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kube-system
+resources:
+  - deployment.yaml
+  - rbac.yaml
+  - vpa.yaml
+  - api-token-sops-secret.yaml
+images:
+  - name: k8s.gcr.io/external-dns/external-dns
+    newTag: v0.9.0
