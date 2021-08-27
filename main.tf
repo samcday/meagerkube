@@ -17,6 +17,10 @@ terraform {
   required_version = "~> 1.0.0"
 }
 
+variable "num_nodes" {
+  default = 1
+}
+
 variable "hcloud_token" {
   sensitive = true
 }
@@ -93,7 +97,7 @@ resource "hcloud_load_balancer_network" "lb-network" {
 }
 
 resource "hcloud_server" "node" {
-  count = 3
+  count = var.num_nodes
 
   name         = "node${count.index}"
   server_type  = "cx21"
@@ -104,7 +108,7 @@ resource "hcloud_server" "node" {
 }
 
 resource "hcloud_server_network" "node-privnet" {
-  count = 3
+  count = var.num_nodes
 
   server_id = hcloud_server.node[count.index].id
   subnet_id = hcloud_network_subnet.subnet-nodes.id
@@ -112,7 +116,7 @@ resource "hcloud_server_network" "node-privnet" {
 }
 
 resource "hcloud_load_balancer_target" "lb-target" {
-  count = 3
+  count = var.num_nodes
   depends_on = [
     hcloud_load_balancer_network.lb-network,
     hcloud_server_network.node-privnet
@@ -208,7 +212,7 @@ resource "null_resource" "hcloud-token" {
 }
 
 resource "null_resource" "kubeadm-join" {
-  count = 3
+  count = var.num_nodes
   depends_on = [
     # This makes sure that the node isn't disconnected from the private network before we've done a `kubeadm reset`.
     hcloud_server_network.node-privnet,
