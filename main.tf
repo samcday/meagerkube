@@ -125,10 +125,14 @@ resource "hcloud_load_balancer_target" "lb-target" {
 }
 
 resource "hcloud_load_balancer_service" "load_balancer_service" {
-  for_each         = toset(["443", "6443"])
+  for_each         = {
+    "80": "32080",
+    "443": "32443",
+    "6443": "6443",
+  }
   load_balancer_id = hcloud_load_balancer.lb.id
   protocol         = "tcp"
-  listen_port      = each.value
+  listen_port      = each.key
   destination_port = each.value
 }
 

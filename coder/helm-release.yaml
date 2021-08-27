@@ -17,7 +17,7 @@ spec:
   values:
     coderd:
       serviceNext: true
-      devurlsHost: '*.devurls.samcday.com'
+      # devurlsHost: '*.devurls.samcday.com'
       serviceSpec:
         type: ClusterIP
         loadBalancerIP: null

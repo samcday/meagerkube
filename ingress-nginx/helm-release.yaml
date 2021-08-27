@@ -1,0 +1,32 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: ingress-nginx
+  namespace: kube-system
+spec:
+  releaseName: ingress-nginx
+  chart:
+    spec:
+      chart: ingress-nginx
+      version: 3.35.0
+      sourceRef:
+        kind: HelmRepository
+        name: ingress-nginx
+        namespace: kube-system
+  interval: 1h0m0s
+  install:
+    remediation:
+      retries: 3
+  # https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
+  values:
+    controller:
+      image:
+        registry: k8s.gcr.io
+        image: ingress-nginx/controller
+        tag: "v0.48.1"
+        digest: sha256:e9fb216ace49dfa4a5983b183067e97496e7a8b307d2093f4278cd550c303899
+      service:
+        type: NodePort
+        nodePorts:
+          http: 32080
+          https: 32443
