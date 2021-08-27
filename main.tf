@@ -211,6 +211,29 @@ resource "null_resource" "hcloud-token" {
   }
 }
 
+resource "null_resource" "hcloud-ccm" {
+  triggers = {
+    hcloud_token_id = null_resource.hcloud-token.id,
+  }
+
+  connection {
+    host        = hcloud_server.node[0].ipv4_address
+    user        = "root"
+    private_key = var.ssh_prv
+  }
+
+  provisioner "file" {
+    source      = "hcloud-ccm"
+    destination = "/root"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -k /root/hcloud-ccm",
+    ]
+  }
+}
+
 resource "null_resource" "kubeadm-join" {
   count = var.num_nodes
   depends_on = [
