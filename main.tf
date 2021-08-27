@@ -18,7 +18,7 @@ terraform {
 }
 
 variable "num_nodes" {
-  default = 1
+  default = 3
 }
 
 variable "hcloud_token" {
