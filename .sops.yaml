@@ -3,9 +3,11 @@ creation_rules:
   - path_regex: sops-secret\.yaml$
     encrypted_regex: ^(data|stringData)$
     age: &ageKeys |-
-      age1cydkdqcsl9dzuze2uh65crllur9lkmfxcmew7w3us8cq87kcz39qc0yyhj,
-      age1sajn4hle45ywde4g2zm6qaktj6ucsuv8cpd8kuzfnqny538r5u8qyq32sa
+      age1s7tlxg30wl7spadyyztffce4y9k3rl05wuc5vavpcn933s4sk40q0dm63h,
+      age1gkm9q535q4qc2mhlrkgzl45xwmpf8jg4fstya7jnatstg7grrdns4rtp2x
   # keys:
   # - personal
   # - cluster key
+  - path_regex: secrets.yaml
+    age: age1s7tlxg30wl7spadyyztffce4y9k3rl05wuc5vavpcn933s4sk40q0dm63h
   - age: *ageKeys
