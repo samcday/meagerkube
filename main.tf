@@ -1,56 +1,42 @@
 terraform {
-  backend "remote" {
-    organization = "samcday"
-
-    workspaces {
-      name = "meagerkube"
-    }
-  }
+  backend "local" {}
 
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
       version = "1.28.1"
     }
+    sops = {
+      source  = "carlpett/sops"
+      version = "~> 0.5"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "3.1.0"
+    }
   }
 
   required_version = "~> 1.0.0"
+}
+
+data "sops_file" "secrets" {
+  source_file = "secrets.yaml"
 }
 
 variable "num_nodes" {
   default = 3
 }
 
-variable "hcloud_token" {
-  sensitive = true
-}
-
-variable "ssh_prv" {
-  sensitive = true
-}
-
-variable "kubeadm_certificate_key" {
-  sensitive = true
-}
-
-variable "kubeadm_token" {
-  sensitive = true
-}
-
-variable "sops_age_key" {
-  sensitive = true
-}
-
-provider "hcloud" {
-  token = var.hcloud_token
+resource "tls_private_key" "key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
 resource "hcloud_firewall" "firewall" {
-  name   = "firewall"
-  labels = {}
+  name = "firewall"
 
   dynamic "rule" {
-    for_each = { "22" : "ssh", "443" : "https", "6443" : "kube-apiserver" }
+    for_each = { "22" : "ssh", "443" : "https" }
     content {
       direction   = "in"
       protocol    = "tcp"
@@ -81,7 +67,7 @@ resource "hcloud_ssh_key" "sam" {
 
 resource "hcloud_ssh_key" "terraform" {
   name       = "terraform"
-  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJLBm9E7KbYp/WF4HJdYzVhSOb/0YJVY9HyVtVghM+Ol"
+  public_key = tls_private_key.key.public_key_openssh
 }
 
 resource "hcloud_load_balancer" "lb" {
@@ -93,7 +79,6 @@ resource "hcloud_load_balancer" "lb" {
 resource "hcloud_load_balancer_network" "lb-network" {
   load_balancer_id = hcloud_load_balancer.lb.id
   subnet_id        = hcloud_network_subnet.subnet-nodes.id
-  ip               = "10.240.0.99"
 }
 
 resource "hcloud_server" "node" {
@@ -101,10 +86,43 @@ resource "hcloud_server" "node" {
 
   name         = "node${count.index}"
   server_type  = "cx21"
-  image        = "45559722"
+  image        = "debian-11"
   location     = "fsn1"
   firewall_ids = [hcloud_firewall.firewall.id]
   ssh_keys     = [hcloud_ssh_key.sam.id, hcloud_ssh_key.terraform.id]
+  user_data    = <<-USERDATA
+    #!/bin/bash
+    set -uex -o pipefail
+
+    # Adapted from `curl -fsSL https://get.docker.com | DRY_RUN=1 sh`
+
+    apt-get update -qq >/dev/null
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apt-transport-https ca-certificates curl gnupg
+
+    curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    curl -fsSL "https://download.docker.com/linux/debian/gpg" | gpg --dearmor --yes -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+    echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
+
+    apt-get update -qq >/dev/null
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-ce docker-ce-cli containerd.io kubelet=1.21.3-00 kubeadm=1.21.3-00 kubectl=1.21.3-00
+    apt-mark hold kubelet kubeadm kubectl
+
+    cat > /etc/docker/daemon.json <<EOF
+    {
+      "exec-opts": ["native.cgroupdriver=systemd"],
+      "log-driver": "json-file",
+      "log-opts": {
+        "max-size": "100m"
+      },
+      "storage-driver": "overlay2"
+    }
+    EOF
+    mkdir -p /etc/systemd/system/docker.service.d
+    systemctl daemon-reload
+    systemctl restart docker
+  USERDATA
 }
 
 resource "hcloud_server_network" "node-privnet" {
@@ -112,7 +130,6 @@ resource "hcloud_server_network" "node-privnet" {
 
   server_id = hcloud_server.node[count.index].id
   subnet_id = hcloud_network_subnet.subnet-nodes.id
-  ip        = "10.240.0.${100 + count.index}"
 }
 
 resource "hcloud_load_balancer_target" "lb-target" {
@@ -129,10 +146,10 @@ resource "hcloud_load_balancer_target" "lb-target" {
 }
 
 resource "hcloud_load_balancer_service" "load_balancer_service" {
-  for_each         = {
-    "80": "32080",
-    "443": "32443",
-    "6443": "6443",
+  for_each = {
+    "80" : "32080",
+    "443" : "32443",
+    "6443" : "6443",
   }
   load_balancer_id = hcloud_load_balancer.lb.id
   protocol         = "tcp"
@@ -146,16 +163,16 @@ resource "null_resource" "kubeadm-init" {
   connection {
     host        = hcloud_server.node[0].ipv4_address
     user        = "root"
-    private_key = var.ssh_prv
+    private_key = tls_private_key.key.private_key_pem
   }
 
   provisioner "file" {
     content = templatefile("kubeadm.yaml", {
-      kubeadm_cert_key = var.kubeadm_certificate_key,
-      kubeadm_token    = var.kubeadm_token,
+      kubeadm_cert_key = data.sops_file.secrets.data["kubeadm.cert_key"],
+      kubeadm_token    = data.sops_file.secrets.data["kubeadm.token"],
       lb_private_ip    = hcloud_load_balancer_network.lb-network.ip,
       lb_public_ip     = hcloud_load_balancer.lb.ipv4
-      node_ip          = "10.240.0.100",
+      node_ip          = hcloud_server_network.node-privnet[0].ip
     })
     destination = "/root/kubeadm.yaml"
   }
@@ -167,12 +184,11 @@ resource "null_resource" "kubeadm-init" {
 
   provisioner "remote-exec" {
     inline = [
+      "cloud-init status -w >/dev/null",
       "kubeadm init --config /root/kubeadm.yaml --upload-certs",
     ]
   }
 }
-
-
 
 resource "null_resource" "bootstrap-manifests" {
   for_each = toset(["flannel", "hcloud-ccm", "kubelet-rubber-stamp"])
@@ -184,7 +200,7 @@ resource "null_resource" "bootstrap-manifests" {
   connection {
     host        = hcloud_server.node[0].ipv4_address
     user        = "root"
-    private_key = var.ssh_prv
+    private_key = tls_private_key.key.private_key_pem
   }
 
   provisioner "file" {
@@ -201,14 +217,14 @@ resource "null_resource" "bootstrap-manifests" {
 
 resource "null_resource" "sops-age-key" {
   triggers = {
-    init_id = null_resource.kubeadm-init.id,
-    sops_age_key = var.sops_age_key,
+    init_id      = null_resource.kubeadm-init.id,
+    sops_age_key = data.sops_file.secrets.data["age_key"],
   }
 
   connection {
     host        = hcloud_server.node[0].ipv4_address
     user        = "root"
-    private_key = var.ssh_prv
+    private_key = tls_private_key.key.private_key_pem
   }
 
   provisioner "remote-exec" {
@@ -220,14 +236,14 @@ resource "null_resource" "sops-age-key" {
 
 resource "null_resource" "hcloud-token" {
   triggers = {
-    init_id = null_resource.kubeadm-init.id,
-    hcloud_token = var.hcloud_token,
+    init_id      = null_resource.kubeadm-init.id,
+    hcloud_token = data.sops_file.secrets.data["hcloud_token"],
   }
 
   connection {
     host        = hcloud_server.node[0].ipv4_address
     user        = "root"
-    private_key = var.ssh_prv
+    private_key = tls_private_key.key.private_key_pem
   }
 
   provisioner "remote-exec" {
@@ -248,32 +264,33 @@ resource "null_resource" "kubeadm-join" {
     # If kubeadm-init is tainted, then all nodes will be forced to recreate. This effectively resets the entire cluster state
     # without having to recreate the nodes.
     init_id = null_resource.kubeadm-init.id
-    ssh_prv = var.ssh_prv
+    ssh_prv = tls_private_key.key.private_key_pem
     # Ensures that provisioner reruns if a node is recreated.
-    server_id = hcloud_server.node[count.index].id
-    host      = hcloud_server.node[count.index].ipv4_address
+    server_id       = hcloud_server.node[count.index].id
+    node_public_ip  = hcloud_server.node[count.index].ipv4_address
+    node_private_ip = hcloud_server_network.node-privnet[count.index].ip
   }
 
   provisioner "file" {
     content = templatefile("kubeadm.yaml", {
-      kubeadm_cert_key = var.kubeadm_certificate_key,
-      kubeadm_token    = var.kubeadm_token,
+      kubeadm_cert_key = data.sops_file.secrets.data["kubeadm.cert_key"],
+      kubeadm_token    = data.sops_file.secrets.data["kubeadm.token"],
       lb_private_ip    = hcloud_load_balancer_network.lb-network.ip,
       lb_public_ip     = hcloud_load_balancer.lb.ipv4
-      node_ip          = "10.240.0.${100 + count.index}",
+      node_ip          = self.triggers.node_private_ip
     })
     destination = "/root/kubeadm.yaml"
   }
 
   connection {
-    host        = self.triggers.host
+    host        = self.triggers.node_public_ip
     user        = "root"
     private_key = self.triggers.ssh_prv
   }
 
   provisioner "remote-exec" {
     inline = [
-      "[ ! -f /etc/kubernetes/kubelet.conf ] && kubeadm join --config /root/kubeadm.yaml || true"
+      "[ -f /etc/kubernetes/kubelet.conf ] && true || { cloud-init status -w >/dev/null; kubeadm join --config /root/kubeadm.yaml; }"
     ]
   }
 
