@@ -108,20 +108,6 @@ resource "hcloud_server" "node" {
     apt-get update -qq >/dev/null
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-ce docker-ce-cli containerd.io kubelet=1.21.3-00 kubeadm=1.21.3-00 kubectl=1.21.3-00
     apt-mark hold kubelet kubeadm kubectl
-
-    cat > /etc/docker/daemon.json <<EOF
-    {
-      "exec-opts": ["native.cgroupdriver=systemd"],
-      "log-driver": "json-file",
-      "log-opts": {
-        "max-size": "100m"
-      },
-      "storage-driver": "overlay2"
-    }
-    EOF
-    mkdir -p /etc/systemd/system/docker.service.d
-    systemctl daemon-reload
-    systemctl restart docker
   USERDATA
 }
 
